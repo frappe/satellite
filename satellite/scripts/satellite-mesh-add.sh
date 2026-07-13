@@ -10,7 +10,9 @@
 # `env VAR=val bash -x <file>`): VIRTUAL_MACHINE_NAME, MESH_PEER.
 set -euo pipefail
 
-peers_dir=/etc/satellite/mesh
+# Production writes /etc/satellite/mesh; SATELLITE_MESH_DIR overrides it so a test
+# (or a faithful-double local host) can point the registry at a scratch dir.
+peers_dir="${SATELLITE_MESH_DIR:-/etc/satellite/mesh}"
 peers_file="${peers_dir}/peers"
 
 mkdir -p "${peers_dir}"

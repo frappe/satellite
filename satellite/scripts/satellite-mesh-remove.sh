@@ -8,7 +8,7 @@
 # Variables arrive as environment: VIRTUAL_MACHINE_NAME.
 set -euo pipefail
 
-peers_file=/etc/satellite/mesh/peers
+peers_file="${SATELLITE_MESH_DIR:-/etc/satellite/mesh}/peers"
 
 if [ -f "${peers_file}" ]; then
 	grep -v "^${VIRTUAL_MACHINE_NAME} " "${peers_file}" >"${peers_file}.tmp" || true
