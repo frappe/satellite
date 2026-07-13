@@ -53,10 +53,14 @@ class MeshService:
 			frappe.throw(_("A satellite-managed VM needs a Tenant to join its private mesh"))
 
 	def provision_variables(self, vm: "VirtualMachine") -> dict:
-		"""Inject the VM's mesh address into the provision env, so the guest's network
-		setup can bring the private interface up with the same address the host mesh
-		advertises for it. Merged into Atlas's provision Task variables (spec/28 §3A)."""
-		return {"SATELLITE_MESH_PEER": self.peer_address(vm)}
+		"""No provision-time guest var: this minimal host-mesh registry lives entirely
+		on the host (on_provision writes the peer there through run_host_script), so the
+		guest needs nothing injected. Returned empty on purpose — the seam still calls
+		it, and a different service (routing's ROUTING_BASE_URL, say) is where a real
+		provision var rides. Note the core provision-vm task is a STRICT typed CLI: a
+		service must only inject flags that task declares, so a satellite-unique guest
+		var waits for the provision task to become env-generic (spec/28 §3A / phase 4)."""
+		return {}
 
 	def on_provision(self, vm: "VirtualMachine") -> None:
 		"""Publish this VM onto its host's mesh registry after provision — the overlay

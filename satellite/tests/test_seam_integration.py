@@ -38,12 +38,10 @@ def _fake_server() -> str:
 
 
 def _tenant() -> str:
-	existing = frappe.db.get_value("Tenant", {"title": "sat-test-tenant"}, "name")
-	if existing:
-		return existing
-	return frappe.get_doc({"doctype": "Tenant", "title": "sat-test-tenant"}).insert(
-		ignore_permissions=True
-	).name
+	name = "sat-test-tenant"
+	if not frappe.db.exists("Tenant", name):
+		frappe.get_doc({"doctype": "Tenant", "team": name}).insert(ignore_permissions=True)
+	return name
 
 
 def _mesh_tasks(script: str) -> list[str]:
@@ -63,25 +61,21 @@ class TestSeamIntegration(IntegrationTestCase):
 	def _managed_vm(self):
 		return make_virtual_machine(self.server, self.image, tenant=self.tenant, satellite_managed=1)
 
-	def test_provision_merges_the_var_and_publishes_the_peer(self) -> None:
+	def test_provision_publishes_the_peer_through_the_exposed_executor(self) -> None:
 		vm = self._managed_vm()
 		vm.provision()
 		vm.reload()
 		self.assertEqual(vm.status, "Running")
 
-		# provision_variables merged into the provision Task's env.
-		provision_task = frappe.get_all(
-			"Task", filters={"virtual_machine": vm.name, "script": "provision-vm"}, pluck="name"
-		)
-		self.assertTrue(provision_task)
-		variables = frappe.get_doc("Task", provision_task[0]).variables_dict
-		self.assertIn("SATELLITE_MESH_PEER", variables)
-
-		# on_provision drove run_host_script → exactly one mesh-add Task, carrying this VM.
+		# on_provision drove Atlas's exposed run_host_script → exactly one mesh-add
+		# Task, carrying this VM and the peer address the service derived. (The
+		# provision-var MERGE mechanism itself is proven in Atlas's own seam test with a
+		# unique spy var; this minimal mesh injects none — it is host-plane.)
 		add_tasks = _mesh_tasks(MESH_ADD)
 		self.assertEqual(len(add_tasks), 1)
 		add_vars = frappe.get_doc("Task", add_tasks[0]).variables_dict
 		self.assertEqual(add_vars["VIRTUAL_MACHINE_NAME"], vm.name)
+		self.assertEqual(add_vars["MESH_PEER"], vm.private_address)
 
 	def test_terminate_withdraws_the_peer(self) -> None:
 		vm = self._managed_vm()

@@ -26,9 +26,11 @@ class TestMeshService(IntegrationTestCase):
 		# With a tenant, validate passes silently.
 		self.svc.validate(frappe._dict(satellite_managed=1, tenant="tenant-1"))
 
-	def test_provision_variables_carry_the_mesh_peer(self) -> None:
+	def test_provision_variables_is_empty_host_plane_only(self) -> None:
+		# The minimal mesh registry is host-plane, so it injects no provision-time guest
+		# var (and must not — provision-vm is a strict typed CLI). The seam still calls it.
 		vm = frappe._dict(private_address="fdaa::1", ipv6_address="2001:db8::1", name="vm-1")
-		self.assertEqual(self.svc.provision_variables(vm), {"SATELLITE_MESH_PEER": "fdaa::1"})
+		self.assertEqual(self.svc.provision_variables(vm), {})
 
 	def test_peer_address_prefers_private_then_public_then_name(self) -> None:
 		self.assertEqual(self.svc.peer_address(frappe._dict(private_address="fdaa::9")), "fdaa::9")
