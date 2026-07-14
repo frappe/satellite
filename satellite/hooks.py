@@ -156,6 +156,12 @@ after_migrate = "satellite.setup.ensure_default_services"
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+	# Re-issue each active region's wildcard cert before it expires and push it to the
+	# proxy fleet (certbot renews-or-skips, so this is cheap).
+	"daily": ["satellite.services.tls.renew_expiring"],
+}
+
 # scheduler_events = {
 # 	"all": [
 # 		"satellite.tasks.all"
