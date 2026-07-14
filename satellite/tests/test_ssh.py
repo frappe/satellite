@@ -50,6 +50,48 @@ class TestSsh(IntegrationTestCase):
 			ssh.run_guest(self.vm, "echo hi")
 		self.assertIn("root@2001:db8::9", run.call_args[0][0])
 
+	def test_stdin_is_forwarded_to_the_command(self) -> None:
+		proc = MagicMock(stdout="", stderr="", returncode=0)
+		with (
+			patch.object(ssh, "_private_key_path", return_value="/tmp/sat_key"),
+			patch("subprocess.run", return_value=proc) as run,
+		):
+			ssh.run_guest(self.vm, "tee /x", stdin="the-body")
+		self.assertEqual(run.call_args.kwargs["input"], "the-body")
+
+	def test_run_host_addr_targets_the_ipv4_directly(self) -> None:
+		proc = MagicMock(stdout="ok", stderr="", returncode=0)
+		with (
+			patch.object(ssh, "_private_key_path", return_value="/tmp/sat_key"),
+			patch("subprocess.run", return_value=proc) as run,
+		):
+			ssh.run_host_addr("5.6.7.8", "wg show")
+		self.assertIn("root@5.6.7.8", run.call_args[0][0])
+
+	def test_run_host_addr_requires_an_ipv4(self) -> None:
+		with self.assertRaises(frappe.ValidationError):
+			ssh.run_host_addr("", "wg show")
+
+	def test_scp_guest_brackets_the_ipv6_literal(self) -> None:
+		proc = MagicMock(stdout="", stderr="", returncode=0)
+		with (
+			patch.object(ssh, "_private_key_path", return_value="/tmp/sat_key"),
+			patch("subprocess.run", return_value=proc) as run,
+		):
+			ssh.scp_guest(self.vm, "/local/deploy.py", "/tmp/deploy.py")
+		argv = run.call_args[0][0]
+		self.assertEqual(argv[0], "scp")
+		self.assertIn("root@[2001:db8::9]:/tmp/deploy.py", argv)
+
+	def test_scp_guest_failure_raises(self) -> None:
+		proc = MagicMock(stdout="", stderr="no route", returncode=1)
+		with (
+			patch.object(ssh, "_private_key_path", return_value="/tmp/sat_key"),
+			patch("subprocess.run", return_value=proc),
+		):
+			with self.assertRaises(frappe.ValidationError):
+				ssh.scp_guest(self.vm, "/local/deploy.py", "/tmp/deploy.py")
+
 	def test_missing_target_raises(self) -> None:
 		bare = frappe.get_doc(
 			{"doctype": "Virtual Machine", "atlas": _atlas(), "remote_id": "vm-no-host"}
