@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:domain",
+ "creation": "2026-07-15 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "domain",
+  "status",
+  "not_before",
+  "not_after",
+  "fullchain_path",
+  "privkey_path",
+  "last_error"
+ ],
+ "fields": [
+  {
+   "description": "The wildcard zone this cert covers (e.g. blr1.frappe.dev → *.blr1.frappe.dev). One cert per domain.",
+   "fieldname": "domain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Domain",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nFailed"
+  },
+  {
+   "fieldname": "not_before",
+   "fieldtype": "Datetime",
+   "label": "Not Before"
+  },
+  {
+   "description": "The cert's expiry. The renew scheduler re-issues when this is within the renewal window.",
+   "fieldname": "not_after",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Not After"
+  },
+  {
+   "description": "On-disk fullchain.pem path on the Satellite node (~/.satellite/certbot/<domain>/live/...).",
+   "fieldname": "fullchain_path",
+   "fieldtype": "Data",
+   "label": "Fullchain Path",
+   "read_only": 1
+  },
+  {
+   "fieldname": "privkey_path",
+   "fieldtype": "Data",
+   "label": "Privkey Path",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error"
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "TLS Certificate",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "domain"
+}
