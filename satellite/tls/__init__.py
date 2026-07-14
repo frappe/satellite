@@ -42,5 +42,6 @@ def for_tls_provider_type(provider_type: str) -> "TlsProvider":
 
 def _load_implementations() -> None:
 	"""Import issuer modules so their `@register` decorators run. Idempotent."""
+	import satellite.tls.letsencrypt  # noqa: F401
 	import satellite.tls.self_managed  # noqa: F401
 	import satellite.tls.zerossl  # noqa: F401
