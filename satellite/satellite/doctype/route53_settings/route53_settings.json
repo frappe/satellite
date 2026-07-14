@@ -1,0 +1,57 @@
+{
+ "actions": [],
+ "creation": "2026-07-15 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "access_key_id",
+  "secret_access_key",
+  "region"
+ ],
+ "fields": [
+  {
+   "description": "AWS IAM access key id with route53:ChangeResourceRecordSets + ListHostedZones on the regional zone.",
+   "fieldname": "access_key_id",
+   "fieldtype": "Data",
+   "label": "Access Key ID"
+  },
+  {
+   "description": "AWS IAM secret access key (stored encrypted). Passed to certbot's dns-route53 plugin as env, never argv.",
+   "fieldname": "secret_access_key",
+   "fieldtype": "Password",
+   "label": "Secret Access Key"
+  },
+  {
+   "default": "us-east-1",
+   "description": "AWS region for the route53 client (Route 53 is global; us-east-1 is the conventional endpoint).",
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "Route53 Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
