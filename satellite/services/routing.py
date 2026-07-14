@@ -241,3 +241,39 @@ def _proxy_vms() -> list[str]:
 	return [
 		vm for vm in names if frappe.db.get_value("Virtual Machine", vm, "vm_status") != "Terminated"
 	]
+
+
+def is_proxy(virtual_machine: str) -> bool:
+	"""True if this VM is an edge proxy (has an Applied `routing-proxy` binding). Used by
+	caller resolution to exclude a proxy's /128 from resolving to a bench VM."""
+	return bool(
+		frappe.db.exists(
+			"Service Binding",
+			{"virtual_machine": virtual_machine, "service": PROXY_SERVICE, "binding_status": "Applied"},
+		)
+	)
+
+
+def wildcard_targets() -> tuple[list[str], list[str]]:
+	"""The proxy fleet's public addresses the regional wildcard should resolve to:
+	(ipv4, ipv6). ipv6 = each proxy VM's `guest_ipv6`; ipv4 = the `public_ipv4` its
+	`routing-proxy` binding config carries (a proxy without one contributes no v4). Both
+	are round-robin sets (spec/12: "DNS round-robin over their v4 + v6")."""
+	ipv4: list[str] = []
+	ipv6: list[str] = []
+	for binding in frappe.get_all(
+		"Service Binding",
+		filters={"service": PROXY_SERVICE, "binding_status": "Applied"},
+		fields=["virtual_machine", "config"],
+	):
+		vm = frappe.db.get_value(
+			"Virtual Machine", binding.virtual_machine, ["guest_ipv6", "vm_status"], as_dict=True
+		)
+		if not vm or vm.vm_status == "Terminated":
+			continue
+		if vm.guest_ipv6:
+			ipv6.append(vm.guest_ipv6)
+		config = json.loads(binding.config) if binding.config else {}
+		if config.get("public_ipv4"):
+			ipv4.append(config["public_ipv4"])
+	return ipv4, ipv6
