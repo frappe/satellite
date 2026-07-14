@@ -14,6 +14,8 @@ PAYLOAD = {
 	"guest_ipv6": "2001:db8::1",
 	"tenant": "t1",
 	"private_address": "fdaa::1",
+	"build_mode": "site",
+	"warm": True,
 	"modified": "2026-07-14 00:00:00",
 }
 
@@ -39,6 +41,8 @@ class TestRegistration(IntegrationTestCase):
 		self.assertEqual(doc.remote_id, "vm-uuid-1")
 		self.assertEqual(doc.server_ipv4, "1.2.3.4")  # the host SSH target
 		self.assertEqual(doc.guest_ipv6, "2001:db8::1")  # the guest SSH target
+		self.assertEqual(doc.build_mode, "site")  # provisioner fact for the site deploy
+		self.assertEqual(doc.warm, 1)
 
 		# A second event for the same VM updates in place (idempotent, same name).
 		with patch.object(

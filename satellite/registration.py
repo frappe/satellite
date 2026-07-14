@@ -35,6 +35,8 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 		"guest_ipv6": payload.get("guest_ipv6"),
 		"tenant": payload.get("tenant"),
 		"private_address": payload.get("private_address"),
+		"build_mode": payload.get("build_mode"),
+		"warm": 1 if payload.get("warm") else 0,
 	}
 	name = frappe.db.exists("Virtual Machine", {"atlas": atlas, "remote_id": payload["name"]})
 	if name:

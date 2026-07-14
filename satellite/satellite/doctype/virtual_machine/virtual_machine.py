@@ -15,6 +15,7 @@ class VirtualMachine(Document):
 		from frappe.types import DF
 
 		atlas: DF.Link
+		build_mode: DF.Data | None
 		guest_ipv6: DF.Data | None
 		private_address: DF.Data | None
 		remote_id: DF.Data
@@ -22,6 +23,7 @@ class VirtualMachine(Document):
 		server_ipv4: DF.Data | None
 		tenant: DF.Data | None
 		vm_status: DF.Data | None
+		warm: DF.Check
 	# end: auto-generated types
 
 	_DOCTYPE_NAME = "Virtual Machine"

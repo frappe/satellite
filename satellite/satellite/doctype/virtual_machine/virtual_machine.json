@@ -15,7 +15,9 @@
   "server_ipv4",
   "guest_ipv6",
   "tenant",
-  "private_address"
+  "private_address",
+  "build_mode",
+  "warm"
  ],
  "fields": [
   {
@@ -61,6 +63,19 @@
    "fieldname": "private_address",
    "fieldtype": "Data",
    "label": "Private Address"
+  },
+  {
+   "description": "The image bake mode (site/admin) mirrored off the Atlas read API. The site deploy picks the deploy mode from it.",
+   "fieldname": "build_mode",
+   "fieldtype": "Data",
+   "label": "Build Mode"
+  },
+  {
+   "default": "0",
+   "description": "Whether this VM was warm-restored (mirrored). The site deploy gates on the in-guest identity freshen when set.",
+   "fieldname": "warm",
+   "fieldtype": "Check",
+   "label": "Warm"
   }
  ],
  "grid_page_length": 50,
