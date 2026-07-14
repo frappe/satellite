@@ -9,7 +9,9 @@
  "field_order": [
   "domain",
   "region",
-  "is_active"
+  "is_active",
+  "tls_provider_type",
+  "dns_provider_type"
  ],
  "fields": [
   {
@@ -37,6 +39,22 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Is Active"
+  },
+  {
+   "default": "Let's Encrypt",
+   "description": "The TLS issuer for this region's wildcard cert. Resolved via satellite.tls.for_tls_provider_type.",
+   "fieldname": "tls_provider_type",
+   "fieldtype": "Select",
+   "label": "TLS Provider Type",
+   "options": "Let's Encrypt\nZeroSSL\nSelf-Managed"
+  },
+  {
+   "default": "Route53",
+   "description": "The DNS vendor that answers DNS-01 and holds the regional wildcard zone. Resolved via satellite.dns.for_dns_provider_type.",
+   "fieldname": "dns_provider_type",
+   "fieldtype": "Select",
+   "label": "DNS Provider Type",
+   "options": "Route53"
   }
  ],
  "links": [],
