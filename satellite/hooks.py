@@ -90,7 +90,10 @@ app_license = "agpl-3.0"
 # ------------
 
 # before_install = "satellite.install.before_install"
-# after_install = "satellite.install.after_install"
+after_install = "satellite.setup.ensure_default_services"
+
+# Seed the built-in service catalog on every migrate (idempotent).
+after_migrate = "satellite.setup.ensure_default_services"
 
 # Uninstallation
 # ------------
