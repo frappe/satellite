@@ -13,10 +13,20 @@ import shlex
 import frappe
 
 from satellite.routing.region import active_region_domain
+from satellite.services.routing import is_proxy
 from satellite.ssh import run_guest
 
 # Mirrors the stock Ubuntu nginx layout on the proxy guest.
 CERT_DIRECTORY = "/var/lib/nginx/certs"
+# The self-signed cert the :8446 unconfigured-domain terminator presents. Kept
+# byte-identical to build.sh's `-subj` so a targeted regen and a full re-bake write the
+# SAME cert. The `\/` is OpenSSL's escape for a literal slash in the URL.
+PLACEHOLDER_DIRECTORY = f"{CERT_DIRECTORY}/_placeholder"
+PLACEHOLDER_CERT_SUBJECT = (
+	"/CN=This domain is not connected to a site yet"
+	"/O=Frappe Cloud"
+	"/OU=Connect it in your dashboard: frappe.dev\\/domains"
+)
 
 
 def push_cert(virtual_machine: str, fullchain: str, privkey: str) -> None:
@@ -33,6 +43,27 @@ def push_cert(virtual_machine: str, fullchain: str, privkey: str) -> None:
 	_stdout, stderr, code = run_guest(virtual_machine, command, timeout=60)
 	if code != 0:
 		frappe.throw(f"Cert push/reload to {virtual_machine} failed (exit {code}): {stderr[-500:]}")
+
+
+def regenerate_placeholder_cert(virtual_machine: str) -> None:
+	"""Regenerate the :8446 unconfigured-domain placeholder cert on a live proxy and
+	reload, without a full re-bake. Touches only certs/_placeholder/; the wildcard cert
+	push_cert installed is untouched. Keep this openssl invocation in lockstep with
+	build.sh's (rsa:2048, 3650d, -nodes, the byte-identical subject)."""
+	if not is_proxy(virtual_machine):
+		frappe.throw(f"Virtual Machine {virtual_machine} is not a proxy")
+	fullchain = f"{PLACEHOLDER_DIRECTORY}/fullchain.pem"
+	privkey = f"{PLACEHOLDER_DIRECTORY}/privkey.pem"
+	command = (
+		f"install -d -m 0750 {shlex.quote(PLACEHOLDER_DIRECTORY)} && "
+		f"openssl req -x509 -newkey rsa:2048 -nodes -days 3650 "
+		f"-keyout {shlex.quote(privkey)} -out {shlex.quote(fullchain)} "
+		f"-subj {shlex.quote(PLACEHOLDER_CERT_SUBJECT)} && "
+		f"chmod 0640 {shlex.quote(privkey)} && /usr/sbin/nginx -s reload"
+	)
+	_stdout, stderr, code = run_guest(virtual_machine, command, timeout=60)
+	if code != 0:
+		frappe.throw(f"Placeholder cert regen/reload to {virtual_machine} failed (exit {code}): {stderr[-500:]}")
 
 
 def _write_guest_file(
