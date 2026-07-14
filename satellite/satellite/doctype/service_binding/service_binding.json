@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format:{virtual_machine}-{service}",
+ "creation": "2026-07-14 16:53:37.040861",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "virtual_machine",
+  "service",
+  "binding_status",
+  "config",
+  "last_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "virtual_machine",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Virtual Machine",
+   "options": "Virtual Machine",
+   "reqd": 1
+  },
+  {
+   "fieldname": "service",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Service",
+   "options": "Service",
+   "reqd": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "binding_status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nApplied\nFailed\nWithdrawn"
+  },
+  {
+   "fieldname": "config",
+   "fieldtype": "Code",
+   "label": "Config",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-14 16:53:37.040861",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "Service Binding",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
