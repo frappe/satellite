@@ -174,6 +174,18 @@ after_migrate = "satellite.setup.ensure_default_services"
 # 	],
 # }
 
+# The WireGuard host-mesh backstop sweep (spec/28 Phase 1): re-reconcile every registered
+# Atlas's fabric so a rebooted/rebuilt/drifted host self-heals without operator action.
+# The mesh is the live cross-host forwarding plane, so a missed lifecycle push is a
+# PARTITION, not a stale row. Idempotent + cheap when in sync; fail-open per Atlas.
+scheduler_events = {
+	"cron": {
+		"*/5 * * * *": [
+			"satellite.services.mesh.reconcile_all_meshes",
+		],
+	},
+}
+
 # Testing
 # -------
 

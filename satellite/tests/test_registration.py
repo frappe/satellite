@@ -25,11 +25,19 @@ def _ensure_atlas() -> None:
 		).insert(ignore_permissions=True)
 
 
+SERVER = {"name": "srv-1", "ipv4": "1.2.3.4", "ipv6": "2001:db8:aa::1", "status": "Active"}
+
+
 class TestRegistration(IntegrationTestCase):
 	def setUp(self) -> None:
 		_ensure_atlas()
-		for name in frappe.get_all("Virtual Machine", pluck="name"):
-			frappe.delete_doc("Virtual Machine", name, force=1, ignore_permissions=True)
+		for dt in ("Virtual Machine", "Server"):
+			for name in frappe.get_all(dt, pluck="name"):
+				frappe.delete_doc(dt, name, force=1, ignore_permissions=True)
+		# register_vm also mirrors the VM's host (the mesh needs it); mock that HTTP too.
+		server_patch = patch.object(registration.AtlasClient, "get_server", return_value=SERVER)
+		server_patch.start()
+		self.addCleanup(server_patch.stop)
 
 	def test_register_upserts_mirror(self) -> None:
 		with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):

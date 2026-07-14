@@ -16,6 +16,7 @@ class Server(Document):
 
 		atlas: DF.Link
 		ipv4: DF.Data | None
+		ipv6: DF.Data | None
 		remote_id: DF.Data
 		server_status: DF.Data | None
 	# end: auto-generated types
