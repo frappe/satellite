@@ -22,6 +22,11 @@ DEFAULT_SERVICES: list[dict] = [
 		"title": "Edge proxy",
 		"handler_path": "satellite.services.routing.RoutingProxyService",
 	},
+	{
+		"service_key": "site",
+		"title": "Site deploy",
+		"handler_path": "satellite.services.site.SiteService",
+	},
 ]
 
 
