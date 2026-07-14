@@ -13,10 +13,14 @@ import frappe
 from satellite.atlas_client import AtlasClient
 
 
-def handle_event(atlas: str, event: str, remote_id: str) -> None:
+def handle_event(atlas: str, vm_event: str, remote_id: str) -> None:
 	"""Background job: apply one lifecycle webhook. Registration is idempotent; a
-	deregister removes the mirror (and cascades to its Service Bindings)."""
-	if event == "vm.deregistered":
+	deregister removes the mirror (and cascades to its Service Bindings).
+
+	The param is `vm_event`, not `event`: this runs as a `frappe.enqueue` job, and
+	`enqueue` reserves the kwarg `event` for its own queue-event category — a kwarg named
+	`event` would be consumed by enqueue and never arrive here."""
+	if vm_event == "vm.deregistered":
 		deregister_vm(atlas, remote_id)
 	else:  # vm.registered / vm.updated
 		register_vm(atlas, remote_id)

@@ -44,7 +44,11 @@ class TestWebhook(IntegrationTestCase):
 		enqueue.assert_called_once()
 		_, kwargs = enqueue.call_args
 		self.assertEqual(kwargs["atlas"], ATLAS)
-		self.assertEqual(kwargs["event"], "vm.registered")
+		# `vm_event`, not `event` — enqueue reserves `event`, so the handler param must be
+		# a non-reserved name or the event never reaches handle_event (regression: a valid
+		# webhook 200'd but the sync job crashed on the missing arg).
+		self.assertEqual(kwargs["vm_event"], "vm.registered")
+		self.assertNotIn("event", kwargs)
 		self.assertEqual(kwargs["remote_id"], "vm-1")
 
 	def test_bad_signature_rejected(self) -> None:

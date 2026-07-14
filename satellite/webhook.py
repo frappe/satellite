@@ -49,7 +49,9 @@ def receive() -> dict:
 		"satellite.registration.handle_event",
 		queue="short",
 		atlas=atlas,
-		event=data.get("event"),
+		# NOT `event=` — frappe.enqueue reserves `event` for its own queue-event category,
+		# so a kwarg named `event` is swallowed and never reaches handle_event.
+		vm_event=data.get("event"),
 		remote_id=data.get("virtual_machine"),
 	)
 	return {"ok": True}
