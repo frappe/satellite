@@ -1,13 +1,12 @@
-"""Satellite's VM services — one per service concern that attaches to Atlas's
-generic VM lifecycle through the seam Atlas exposes (spec/28 §3A).
+"""Satellite's service handlers — one per service concern (mesh, gateway, routing,
+proxy, bench/site) that Satellite applies to the VMs an Atlas hands it (spec/28, the
+provisioner/orchestrator split).
 
-Each service is a plain class implementing the `VMService` protocol Atlas defines
-in `atlas.atlas.vm_services`; it is registered by dotted path in the
-`atlas_vm_services` hook. A service holds the DECISION (what routing map / peer set
-/ deploy step a VM needs) and ships setup scripts, but performs NO infrastructure
-itself: every host/guest effect goes through Atlas's exposed execution API
-(`run_host_script`, `run_guest_script`). That invariant — satellite never opens SSH,
-calls a provider, or touches a host/guest directly — is what keeps satellite a pure
-controller layer and lets its whole surface be tested against Atlas's Fake seam with
-no cloud droplet.
+Each handler is a plain class named by a `Service` catalog row's `handler_path`. It
+implements `apply(vm, binding)` and `withdraw(vm, binding)`, holding the DECISION for
+one concern (the peer set, routing map, deploy step a VM needs). Unlike the old
+co-installed seam, a handler performs the infrastructure ITSELF: Satellite is a
+separate deployment with its own SSH engine, so a handler reaches the host/guest over
+`satellite.ssh` and never imports Atlas — it learns a VM's SSH targets from the mirror
+row Satellite registered off the Atlas read API.
 """

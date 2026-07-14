@@ -1,43 +1,18 @@
 app_name = "satellite"
 app_title = "Satellite"
 app_publisher = "Frappe"
-app_description = "Service layer for Atlas: routing, gateway, mesh, bench/site behind the VM lifecycle seam (spec/28)"
+app_description = "Standalone service orchestrator for Atlas: mesh, gateway, routing, proxy, bench/site — driven over SSH + the Atlas read API (spec/28)"
 app_email = "aditya@frappe.io"
 app_license = "agpl-3.0"
 
 # Apps
 # ------------------
 
-# Satellite is the service layer that attaches to Atlas's generic VM lifecycle
-# through the seam Atlas core exposes (spec/28-core-service-boundary.md). It is a
-# controller + setup scripts only — every host/guest effect runs through the infra
-# methods Atlas exposes (atlas.atlas.vm_services), never SSH/providers here.
-required_apps = ["atlas"]
-
-# 3A — the lifecycle registry. Atlas core reads this hook and calls each service at
-# its VM-lifecycle hook points (validate / provision_variables / on_provision /
-# on_status_change / teardown). Core never imports satellite; this hook is the only
-# link. Declared order is the order core runs them.
-atlas_vm_services = [
-	"satellite.services.mesh.MeshService",
-]
-
-# 3B — register satellite's Task-script tree with Atlas's runner. Atlas stages and
-# runs these on a host/guest on satellite's behalf; satellite opens no SSH itself.
-# "<app>:<relative/dir>" is resolved against the app's module path.
-atlas_script_directories = [
-	"satellite:scripts",
-]
-
-# The service's own custom fields on Atlas's Virtual Machine, shipped as fixtures
-# (never by hand-editing virtual_machine.json). `satellite_managed` is the flag each
-# service's applies_to() reads; owned here, not in core.
-fixtures = [
-	{
-		"dt": "Custom Field",
-		"filters": [["name", "in", ["Virtual Machine-satellite_managed"]]],
-	},
-]
+# Satellite is a STANDALONE orchestrator (spec/28, the provisioner/orchestrator
+# split): a separate deployment that manages services for the VMs one or more Atlas
+# provisioners hand it. It never imports Atlas — it mirrors VMs by polling each
+# Atlas's read API over HTTP and drives every effect over its OWN SSH to the hosts and
+# guests. So it has NO required_apps and registers no hooks inside Atlas.
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
