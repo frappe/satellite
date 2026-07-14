@@ -1,6 +1,6 @@
-"""Satellite's service handlers — one per service concern (mesh, gateway, routing,
+"""Satellite's service handlers — one per guest-plane service concern (routing,
 proxy, bench/site) that Satellite applies to the VMs an Atlas hands it (spec/28, the
-provisioner/orchestrator split).
+provisioner/orchestrator split). Host-plane fabric (mesh, gateway) stays in Atlas.
 
 Each handler is a plain class named by a `Service` catalog row's `handler_path`. It
 implements `apply(vm, binding)` and `withdraw(vm, binding)`, holding the DECISION for

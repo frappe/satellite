@@ -9,13 +9,10 @@ from __future__ import annotations
 
 import frappe
 
-DEFAULT_SERVICES = [
-	{
-		"service_key": "mesh",
-		"title": "Private mesh",
-		"handler_path": "satellite.services.mesh.MeshService",
-	},
-]
+# The built-in service catalog. Empty until Phase 2 (routing) lands the first
+# guest-plane service; host-plane concerns (mesh, gateway) stay in Atlas per the
+# guest-plane-only boundary rule (spec/28).
+DEFAULT_SERVICES: list[dict] = []
 
 
 def ensure_default_services() -> None:

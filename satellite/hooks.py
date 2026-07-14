@@ -1,7 +1,7 @@
 app_name = "satellite"
 app_title = "Satellite"
 app_publisher = "Frappe"
-app_description = "Standalone service orchestrator for Atlas: mesh, gateway, routing, proxy, bench/site — driven over SSH + the Atlas read API (spec/28)"
+app_description = "Standalone service orchestrator for Atlas: routing, proxy, bench/site — driven over SSH + the Atlas read API (spec/28)"
 app_email = "aditya@frappe.io"
 app_license = "agpl-3.0"
 
