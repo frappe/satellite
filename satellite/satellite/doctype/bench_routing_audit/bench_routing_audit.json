@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-07-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "MyISAM",
+ "field_order": [
+  "endpoint",
+  "status",
+  "business_reject",
+  "label",
+  "vm",
+  "source_ip",
+  "fwd_headers",
+  "request_body"
+ ],
+ "fields": [
+  {
+   "description": "Which guest routing endpoint was called (register, deregister, check_label, ...).",
+   "fieldname": "endpoint",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Endpoint"
+  },
+  {
+   "description": "The outcome (ok / taken / reserved / at_limit / invalid / unresolved).",
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status"
+  },
+  {
+   "default": "0",
+   "description": "1 when the call was rejected by a business rule (as opposed to accepted).",
+   "fieldname": "business_reject",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Business Reject"
+  },
+  {
+   "description": "The label or domain the call carried (blank for list / host-level queries).",
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "description": "The resolved VM (a Data snapshot, not a Link — an audit row must outlive the VM). Blank when the source resolved to no VM (a spoof/ambiguity signal).",
+   "fieldname": "vm",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "VM"
+  },
+  {
+   "description": "The request source address caller resolution acted on (frappe.local.request_ip).",
+   "fieldname": "source_ip",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source IP"
+  },
+  {
+   "description": "The forwarded-header chain verbatim (incl. raw X-Forwarded-For). Its divergence from source_ip is the leftmost-XFF forgery signal.",
+   "fieldname": "fwd_headers",
+   "fieldtype": "Small Text",
+   "label": "Forwarded Headers"
+  },
+  {
+   "description": "The raw POST body verbatim (guest-controlled).",
+   "fieldname": "request_body",
+   "fieldtype": "Small Text",
+   "label": "Request Body"
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "Bench Routing Audit",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

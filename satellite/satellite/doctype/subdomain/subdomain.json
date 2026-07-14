@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:subdomain",
+ "creation": "2026-07-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "subdomain",
+  "active",
+  "virtual_machine",
+  "address"
+ ],
+ "fields": [
+  {
+   "description": "The bare subdomain label, unique across the fleet. The site is reachable at <subdomain>.<region domain>. This is the routing key the proxy stores in its live map.",
+   "fieldname": "subdomain",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Subdomain",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "description": "Inactive subdomains are excluded from the desired map the proxy serves (the row stays for history). Toggle off to take a site off the front door without deleting the mapping.",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Active"
+  },
+  {
+   "description": "The site VM this subdomain points at. The proxy dials its guest IPv6 :80 (plaintext) over the v6 internet.",
+   "fieldname": "virtual_machine",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Virtual Machine",
+   "options": "Virtual Machine",
+   "reqd": 1
+  },
+  {
+   "description": "The target VM's routing IPv6 /128, denormalized so the desired map is a single query with no join. Kept in sync with the mirror's guest_ipv6 (or private_address for a dark VM) on save.",
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Address",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "Subdomain",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "subdomain,virtual_machine",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "subdomain",
+ "track_changes": 1
+}

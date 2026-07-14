@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{protocol}-{public_port}",
+ "creation": "2026-07-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "protocol",
+  "public_port",
+  "active",
+  "virtual_machine",
+  "target_port",
+  "address"
+ ],
+ "fields": [
+  {
+   "default": "tcp",
+   "description": "The L4 service class this mapping forwards. Part of the {protocol}-{public_port} name.",
+   "fieldname": "protocol",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Protocol",
+   "options": "tcp\nssh\nmariadb",
+   "reqd": 1
+  },
+  {
+   "description": "The public port allocated from the pool (read-only). The proxy listens on it and forwards to the backend.",
+   "fieldname": "public_port",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Public Port",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "description": "Inactive mappings are excluded from the desired port map the proxy serves (the row keeps its port).",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Active"
+  },
+  {
+   "description": "The backend VM this port forwards to. The proxy dials its guest IPv6 at the target port.",
+   "fieldname": "virtual_machine",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Virtual Machine",
+   "options": "Virtual Machine",
+   "reqd": 1
+  },
+  {
+   "description": "The backend service port on the VM (e.g. 22 for ssh, 3306 for mariadb). Fixed once chosen.",
+   "fieldname": "target_port",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Target Port",
+   "reqd": 1
+  },
+  {
+   "description": "The target VM's routing IPv6 /128, denormalized so the desired map is a single query with no join. Kept in sync with the mirror on save.",
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "label": "Address",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Satellite",
+ "name": "Port Mapping",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "virtual_machine,public_port",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
