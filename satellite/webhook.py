@@ -20,6 +20,20 @@ from satellite.satellite.doctype.atlas.atlas import Atlas
 SIGNATURE_HEADER = "X-Atlas-Signature"
 
 
+def _reject(message: str) -> dict:
+	"""Reject with a clean 403. The body is unauthenticated until the HMAC checks out,
+	so a bad sender/signature is a permission failure — returned, not raised, so it is a
+	tidy 403 rather than a 500 (and never trips the dev server's debugger)."""
+	frappe.local.response.http_status_code = 403
+	return {"error": message}
+
+
+def _authentic(atlas: str, body: bytes) -> bool:
+	secret = frappe.get_doc("Atlas", atlas).get_password("webhook_secret", raise_exception=False) or ""
+	expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+	return hmac.compare_digest(expected, frappe.get_request_header(SIGNATURE_HEADER) or "")
+
+
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def receive() -> dict:
 	body = frappe.request.get_data()  # exact bytes Atlas signed
@@ -27,12 +41,9 @@ def receive() -> dict:
 
 	atlas = Atlas.for_base_url(data.get("atlas") or "")
 	if not atlas:
-		raise frappe.PermissionError("unknown Atlas")
-
-	secret = frappe.get_doc("Atlas", atlas).get_password("webhook_secret", raise_exception=False) or ""
-	expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-	if not hmac.compare_digest(expected, frappe.get_request_header(SIGNATURE_HEADER) or ""):
-		raise frappe.PermissionError("bad signature")
+		return _reject("unknown Atlas")
+	if not _authentic(atlas, body):
+		return _reject("bad signature")
 
 	frappe.enqueue(
 		"satellite.registration.handle_event",

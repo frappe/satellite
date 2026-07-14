@@ -48,9 +48,17 @@ class TestWebhook(IntegrationTestCase):
 		self.assertEqual(kwargs["remote_id"], "vm-1")
 
 	def test_bad_signature_rejected(self) -> None:
-		with self.assertRaises(frappe.PermissionError):
-			self._receive({"atlas": BASE, "event": "vm.registered", "virtual_machine": "vm-1"}, signature="deadbeef")
+		result, enqueue = self._receive(
+			{"atlas": BASE, "event": "vm.registered", "virtual_machine": "vm-1"}, signature="deadbeef"
+		)
+		self.assertEqual(frappe.local.response.http_status_code, 403)
+		self.assertIn("error", result)
+		enqueue.assert_not_called()
 
 	def test_unknown_atlas_rejected(self) -> None:
-		with self.assertRaises(frappe.PermissionError):
-			self._receive({"atlas": "http://nope", "event": "vm.registered", "virtual_machine": "vm-1"})
+		result, enqueue = self._receive(
+			{"atlas": "http://nope", "event": "vm.registered", "virtual_machine": "vm-1"}
+		)
+		self.assertEqual(frappe.local.response.http_status_code, 403)
+		self.assertIn("error", result)
+		enqueue.assert_not_called()
