@@ -1,40 +1,47 @@
-"""MeshService — the real cross-host WireGuard mesh, as a Satellite service handler
-(spec/28 Phase 1). Binding a VM to `mesh` puts its /128 on the fabric; unbinding withdraws
-it. Because the mesh is CROSS-HOST, both apply and withdraw reconcile the WHOLE fabric for
-the VM's Atlas — a single VM's /128 joining/leaving changes every OTHER host's AllowedIPs.
+"""MeshService — the host-plane private mesh, as a Satellite service handler (spec/28).
 
-The VM's own status already gates residency (a Terminated VM is excluded by
-_residents_by_host), so withdraw is just "reconcile now that the row is gone/terminated".
-This replaces the Phase-0 reduced demo (a /etc/satellite/mesh/peers registry file) with the
-real WireGuard reconcile ported to Satellite's own SSH.
+The overlay that carries each tenant's private plane is host-plane: it lives on the
+firecracker HOST, not the guest. So this handler reaches the host itself over
+Satellite's SSH (`run_host`) and maintains a per-host registry file listing the mesh
+address of every VM resident there (`/etc/satellite/mesh/peers`). A binding's apply
+adds this VM's line; its withdraw removes it. Both are idempotent.
+
+This is the walking-skeleton reduction of the full WireGuard reconcile (that comes in a
+later phase); it proves the whole new model end to end — register a VM off an Atlas,
+bind a service, and have Satellite drive a real host effect over its own SSH.
 """
 
 from __future__ import annotations
 
-import frappe
+import shlex
 
-from satellite.host_mesh import reconcile_host_mesh
+from satellite.ssh import run_host
 
-_LOG = "Satellite Mesh"
+PEERS = "/etc/satellite/mesh/peers"
 
 
 class MeshService:
+	def _peer(self, vm) -> str:
+		"""The address this VM advertises: its derived private /128 when it has one,
+		else its public /128, else its id — a stable identifier either way."""
+		return vm.private_address or vm.guest_ipv6 or vm.remote_id
+
 	def apply(self, vm, binding) -> None:
-		"""Advertise this VM's /128 fleet-wide: reconcile the whole mesh for its Atlas."""
-		reconcile_host_mesh(vm.atlas)
+		"""Publish this VM's peer into its host's registry. Idempotent."""
+		line = f"{vm.remote_id} {self._peer(vm)}"
+		command = (
+			f"mkdir -p /etc/satellite/mesh && touch {PEERS} && "
+			f"grep -qxF {shlex.quote(line)} {PEERS} || echo {shlex.quote(line)} >> {PEERS}"
+		)
+		_out, err, code = run_host(vm.name, command)
+		if code != 0:
+			raise RuntimeError(f"mesh apply failed (exit {code}): {err[-200:]}")
 
 	def withdraw(self, vm, binding) -> None:
-		"""Withdraw this VM's /128: reconcile the whole mesh for its Atlas (the row is now
-		Terminated/gone, so residency excludes it)."""
-		reconcile_host_mesh(vm.atlas)
-
-
-def reconcile_all_meshes() -> None:
-	"""Scheduled backstop sweep (hooks.scheduler_events): re-reconcile every registered
-	Atlas's mesh so a rebooted/drifted host self-heals. Fail-open per Atlas — one Atlas's
-	partition never wedges the others."""
-	for atlas in frappe.get_all("Atlas", filters={"enabled": 1}, pluck="name"):
-		try:
-			reconcile_host_mesh(atlas)
-		except Exception as exception:
-			frappe.log_error(f"Mesh sweep failed for Atlas {atlas}: {exception}", _LOG)
+		"""Withdraw this VM's peer from its host's registry. Idempotent (no-op if the
+		line is already gone, keyed on the VM id)."""
+		script = f"/^{vm.remote_id} /d"
+		command = f"[ -f {PEERS} ] && sed -i {shlex.quote(script)} {PEERS}; true"
+		_out, err, code = run_host(vm.name, command)
+		if code != 0:
+			raise RuntimeError(f"mesh withdraw failed (exit {code}): {err[-200:]}")

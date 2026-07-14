@@ -3,8 +3,6 @@ from unittest.mock import patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from satellite.services import mesh
-
 ATLAS = "mesh-atlas"
 
 
@@ -28,15 +26,17 @@ def _vm():
 	if name:
 		return frappe.get_doc("Virtual Machine", name)
 	return frappe.get_doc(
-		{"doctype": "Virtual Machine", "atlas": ATLAS, "remote_id": "vm-mesh", "server_ipv4": "9.9.9.9"}
+		{
+			"doctype": "Virtual Machine",
+			"atlas": ATLAS,
+			"remote_id": "vm-mesh",
+			"server_ipv4": "9.9.9.9",
+			"private_address": "fdaa::7",
+		}
 	).insert(ignore_permissions=True)
 
 
 class TestMeshBinding(IntegrationTestCase):
-	"""The mesh handler now drives the REAL cross-host reconcile (host_mesh) for the VM's
-	Atlas. Binding a VM reconciles the whole fabric; unbinding reconciles again (the row is
-	gone, so residency excludes it). The reconcile itself is unit-tested in test_host_mesh."""
-
 	def setUp(self) -> None:
 		_setup()
 		for name in frappe.get_all("Service Binding", pluck="name"):
@@ -48,21 +48,26 @@ class TestMeshBinding(IntegrationTestCase):
 			{"doctype": "Service Binding", "virtual_machine": self.vm.name, "service": "mesh"}
 		).insert(ignore_permissions=True)
 
-	def test_apply_reconciles_the_atlas_mesh(self) -> None:
-		with patch("satellite.services.mesh.reconcile_host_mesh", return_value=[]) as reconcile:
+	def test_apply_publishes_peer_on_the_host(self) -> None:
+		with patch("satellite.services.mesh.run_host", return_value=("", "", 0)) as run_host:
 			binding = self._bind()
-		reconcile.assert_called_once_with(ATLAS)
+		run_host.assert_called_once()
+		vm_name, command = run_host.call_args[0][0], run_host.call_args[0][1]
+		self.assertEqual(vm_name, self.vm.name)  # SSHes THIS VM's host
+		self.assertIn(self.vm.remote_id, command)
+		self.assertIn("fdaa::7", command)  # the derived private address as the peer
 		self.assertEqual(frappe.db.get_value("Service Binding", binding.name, "binding_status"), "Applied")
 
-	def test_withdraw_reconciles_on_delete(self) -> None:
-		with patch("satellite.services.mesh.reconcile_host_mesh", return_value=[]):
+	def test_withdraw_on_delete(self) -> None:
+		with patch("satellite.services.mesh.run_host", return_value=("", "", 0)):
 			binding = self._bind()
-		with patch("satellite.services.mesh.reconcile_host_mesh", return_value=[]) as reconcile:
+		with patch("satellite.services.mesh.run_host", return_value=("", "", 0)) as run_host:
 			frappe.delete_doc("Service Binding", binding.name, force=1, ignore_permissions=True)
-		reconcile.assert_called_once_with(ATLAS)
+		run_host.assert_called_once()
+		self.assertIn("sed", run_host.call_args[0][1])
 
 	def test_apply_failure_marks_binding_failed(self) -> None:
-		with patch("satellite.services.mesh.reconcile_host_mesh", side_effect=RuntimeError("partition")):
+		with patch("satellite.services.mesh.run_host", return_value=("", "boom", 1)):
 			binding = self._bind()
 		self.assertEqual(frappe.db.get_value("Service Binding", binding.name, "binding_status"), "Failed")
-		self.assertIn("partition", frappe.db.get_value("Service Binding", binding.name, "last_error"))
+		self.assertIn("boom", frappe.db.get_value("Service Binding", binding.name, "last_error"))

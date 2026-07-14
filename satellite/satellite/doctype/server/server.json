@@ -11,8 +11,7 @@
   "atlas",
   "remote_id",
   "ipv4",
-  "server_status",
-  "ipv6"
+  "server_status"
  ],
  "fields": [
   {
@@ -38,17 +37,12 @@
    "fieldname": "server_status",
    "fieldtype": "Data",
    "label": "Status"
-  },
-  {
-   "fieldname": "ipv6",
-   "fieldtype": "Data",
-   "label": "IPv6"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-14 17:59:59.820034",
+ "modified": "2026-07-14 16:53:36.688755",
  "modified_by": "Administrator",
  "module": "Satellite",
  "name": "Server",

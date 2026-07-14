@@ -23,34 +23,8 @@ def handle_event(atlas: str, event: str, remote_id: str) -> None:
 
 
 def register_vm(atlas: str, remote_id: str) -> str:
-	"""Pull one VM off its Atlas and upsert the mirror row. Also ensures the VM's host is
-	mirrored (the cross-host mesh needs a Server row per host: ipv4 + the ipv6 wg endpoint).
-	Returns the mirror name."""
-	payload = AtlasClient(atlas).get_virtual_machine(remote_id)
-	if payload.get("server"):
-		register_server(atlas, payload["server"])
-	return _upsert_vm(atlas, payload)
-
-
-def register_server(atlas: str, remote_id: str) -> str:
-	"""Pull one host off its Atlas and upsert the Server mirror (ipv4 SSH target + ipv6 wg
-	endpoint + status). Idempotent."""
-	payload = AtlasClient(atlas).get_server(remote_id)
-	values = {
-		"ipv4": payload.get("ipv4"),
-		"ipv6": payload.get("ipv6"),
-		"server_status": payload.get("status"),
-	}
-	name = frappe.db.exists("Server", {"atlas": atlas, "remote_id": payload["name"]})
-	if name:
-		doc = frappe.get_doc("Server", name)
-		doc.update(values)
-		doc.save(ignore_permissions=True)
-	else:
-		doc = frappe.get_doc(
-			{"doctype": "Server", "atlas": atlas, "remote_id": payload["name"], **values}
-		).insert(ignore_permissions=True)
-	return doc.name
+	"""Pull one VM off its Atlas and upsert the mirror row. Returns the mirror name."""
+	return _upsert_vm(atlas, AtlasClient(atlas).get_virtual_machine(remote_id))
 
 
 def _upsert_vm(atlas: str, payload: dict) -> str:
