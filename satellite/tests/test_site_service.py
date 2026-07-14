@@ -101,3 +101,52 @@ class TestSiteService(IntegrationTestCase):
 		# Deleting the binding fires withdraw; it must not raise.
 		frappe.delete_doc("Service Binding", binding.name, force=1, ignore_permissions=True)
 		self.assertFalse(frappe.db.exists("Service Binding", binding.name))
+
+
+class TestDeployApi(IntegrationTestCase):
+	def setUp(self) -> None:
+		for name in frappe.get_all("Service Binding", pluck="name"):
+			frappe.delete_doc("Service Binding", name, force=1, ignore_permissions=True)
+		self.vm = _vm()
+
+	def test_deploy_enqueues_and_returns_accepted(self) -> None:
+		from satellite.services import site
+
+		with patch.object(frappe, "enqueue") as enqueue:
+			result = site.deploy("site-svc-atlas", "svc-vm", "app.blr1.frappe.dev", central_auth_token="tok")
+		self.assertEqual(result["status"], "accepted")
+		self.assertEqual(enqueue.call_args.args[0], "satellite.services.site.run_deploy")
+		self.assertEqual(enqueue.call_args.kwargs["fqdn"], "app.blr1.frappe.dev")
+		self.assertEqual(enqueue.call_args.kwargs["central_auth_token"], "tok")
+
+	def test_run_deploy_mirrors_and_creates_the_binding(self) -> None:
+		from satellite.services import site
+
+		with (
+			patch("satellite.services.site.registration.register_vm", return_value=self.vm.name),
+			patch("satellite.services.site.deploy_site"),
+			patch("satellite.services.site.wait_for_http"),
+		):
+			binding_name = site.run_deploy(
+				"site-svc-atlas", "svc-vm", "app.blr1.frappe.dev", central_endpoint="https://c/api"
+			)
+		binding = frappe.get_doc("Service Binding", binding_name)
+		self.assertEqual(binding.binding_status, "Applied")
+		config = json.loads(binding.config)
+		self.assertEqual(config["fqdn"], "app.blr1.frappe.dev")
+		self.assertEqual(config["central_endpoint"], "https://c/api")
+
+	def test_run_deploy_replaces_a_prior_binding(self) -> None:
+		from satellite.services import site
+
+		with (
+			patch("satellite.services.site.registration.register_vm", return_value=self.vm.name),
+			patch("satellite.services.site.deploy_site"),
+			patch("satellite.services.site.wait_for_http"),
+		):
+			site.run_deploy("site-svc-atlas", "svc-vm", "app.blr1.frappe.dev")
+			# A second request must not collide (the binding autonames {vm}-{service}); the
+			# prior one is replaced, leaving exactly one.
+			second = site.run_deploy("site-svc-atlas", "svc-vm", "app.blr1.frappe.dev")
+		self.assertTrue(frappe.db.exists("Service Binding", second))
+		self.assertEqual(frappe.db.count("Service Binding", {"virtual_machine": self.vm.name}), 1)
