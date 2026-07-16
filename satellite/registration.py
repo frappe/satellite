@@ -64,30 +64,73 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 	# and the reconcile sweep heal it (idempotent: a VM with no routes is a no-op). This is
 	# the guest-plane analogue of Atlas's synchronous terminate-deletes-subdomains.
 	if values["vm_status"] == "Terminated":
-		from satellite.services.routing import teardown_vm_routes
-
-		teardown_vm_routes(doc.name)
+		_teardown_vm(doc.name)
 	else:
-		_ensure_intent_subdomains(doc.name, payload.get("routing_subdomains"))
+		_reconcile_intent_subdomains(doc.name, payload.get("routing_subdomains"))
 	return doc.name
 
 
-def _ensure_intent_subdomains(virtual_machine: str, labels) -> None:
-	"""Create any provisioner-intent routing Subdomain that doesn't exist yet — the seam
-	that lets Atlas's Site/Pilot record a subdomain ON THE VM instead of creating the
-	Subdomain themselves (the routing dedup). `labels` is the VM read-API's
-	`routing_subdomains` (a list, or a JSON string). Create-only: a guest self-serve route
-	is never touched, and teardown_vm_routes on Terminated removes a VM's routes. Idempotent
-	— a label already taken (a re-run, or another VM) is skipped, never a hard error. The
-	Subdomain's own after_insert reconciles the fleet."""
-	if not labels:
+def _teardown_vm(virtual_machine: str) -> None:
+	"""A Terminated guest can no longer serve — delete its routes AND its Service Bindings so
+	nothing keeps targeting or CLASSIFYING a dead /128 (a lingering `routing-proxy` binding
+	would keep `is_proxy()` true for a recycled address). Idempotent; heals off the mirrored
+	status via the webhook or the reconcile sweep."""
+	from satellite.services.routing import teardown_vm_routes
+
+	teardown_vm_routes(virtual_machine)
+	for name in frappe.get_all("Service Binding", filters={"virtual_machine": virtual_machine}, pluck="name"):
+		frappe.delete_doc("Service Binding", name, force=1, ignore_permissions=True)
+
+
+def _reconcile_intent_subdomains(virtual_machine: str, labels) -> None:
+	"""Reconcile a VM's PROVISIONER-INTENT routing Subdomains to `labels` — the seam that
+	lets Atlas's Site/Pilot record their subdomain(s) ON THE VM (read-API `routing_subdomains`,
+	a list or JSON string) instead of creating the Subdomain themselves (the routing dedup).
+
+	A two-way set reconcile over `provisioner_intent` rows only: create the missing, delete
+	the dropped (e.g. an attached Pilot that detached). Guest self-serve routes (not marked
+	intent) are never touched. Skipped until the mirror is addressable — `routing_address`
+	throws without a guest_ipv6/private_address, and the first `vm.registered` can arrive
+	pre-addressing; the Running `vm.updated` (or the sweep) heals it. A label already held by
+	ANOTHER VM is LOGGED, not silently swallowed — an unroutable Site must surface, never
+	vanish. The Subdomain's own after_insert reconciles the fleet."""
+	desired = set(labels if isinstance(labels, list) else json.loads(labels)) if labels else set()
+	vm = frappe.db.get_value(
+		"Virtual Machine", virtual_machine, ["guest_ipv6", "private_address"], as_dict=True
+	)
+	if not (vm and (vm.guest_ipv6 or vm.private_address)):
 		return
-	desired = labels if isinstance(labels, list) else json.loads(labels)
-	for label in desired:
-		if label and not frappe.db.exists("Subdomain", {"subdomain": label}):
-			frappe.get_doc(
-				{"doctype": "Subdomain", "subdomain": label, "virtual_machine": virtual_machine, "active": 1}
-			).insert(ignore_permissions=True)
+
+	current = {
+		row.subdomain: row.name
+		for row in frappe.get_all(
+			"Subdomain",
+			filters={"virtual_machine": virtual_machine, "provisioner_intent": 1},
+			fields=["name", "subdomain"],
+		)
+	}
+	for label, name in current.items():
+		if label not in desired:
+			frappe.delete_doc("Subdomain", name, force=1, ignore_permissions=True)
+	for label in desired - set(current):
+		holder = frappe.db.get_value("Subdomain", {"subdomain": label}, "virtual_machine")
+		if holder:
+			if holder != virtual_machine:
+				frappe.log_error(
+					f"Routing intent for {virtual_machine} wants subdomain {label!r}, held by "
+					f"{holder} — Site left unrouted",
+					"Routing intent conflict",
+				)
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Subdomain",
+				"subdomain": label,
+				"virtual_machine": virtual_machine,
+				"active": 1,
+				"provisioner_intent": 1,
+			}
+		).insert(ignore_permissions=True)
 
 
 def _rederive_routes(virtual_machine: str) -> None:

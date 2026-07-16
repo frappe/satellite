@@ -92,6 +92,67 @@ class TestRegistration(IntegrationTestCase):
 			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=payload):
 				registration.register_vm(ATLAS, "vm-uuid-1")  # a second event must not duplicate
 			self.assertEqual(frappe.db.count("Subdomain", {"virtual_machine": name}), 2)
+			self.assertTrue(frappe.db.get_value("Subdomain", {"subdomain": "mysite"}, "provisioner_intent"))
+
+	def test_intent_reconcile_removes_dropped_label(self) -> None:
+		# A detached Pilot drops its label from the intent list; the set reconcile deletes
+		# its Subdomain (guest self-serve rows, not marked intent, are never touched).
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "routing_subdomains": ["site", "site-pilot"]},
+			):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			# a guest self-serve route on the same VM must survive the reconcile
+			frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": "guest-route", "virtual_machine": name, "active": 1}
+			).insert(ignore_permissions=True)
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "routing_subdomains": ["site"]},  # pilot detached
+			):
+				registration.register_vm(ATLAS, "vm-uuid-1")
+			labels = set(frappe.get_all("Subdomain", filters={"virtual_machine": name}, pluck="subdomain"))
+			self.assertEqual(labels, {"site", "guest-route"})
+
+	def test_intent_skipped_until_mirror_is_addressable(self) -> None:
+		# The first vm.registered can arrive before addressing; routing_address would throw,
+		# so the reconcile is skipped and the next (addressed) event creates the route.
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "guest_ipv6": None, "private_address": None, "routing_subdomains": ["s"]},
+			):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			self.assertEqual(frappe.db.count("Subdomain", {"virtual_machine": name}), 0)
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "routing_subdomains": ["s"]},
+			):
+				registration.register_vm(ATLAS, "vm-uuid-1")
+			self.assertEqual(frappe.db.count("Subdomain", {"virtual_machine": name}), 1)
+
+	def test_intent_conflict_does_not_steal_another_vms_label(self) -> None:
+		# A label already held by another VM must not be re-pointed; the Site is left
+		# unrouted (logged), never silently stolen.
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):
+				other = registration.register_vm(ATLAS, "vm-uuid-1")
+			frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": "taken", "virtual_machine": other, "active": 1}
+			).insert(ignore_permissions=True)
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "name": "vm-uuid-2", "routing_subdomains": ["taken"]},
+			):
+				mine = registration.register_vm(ATLAS, "vm-uuid-2")
+			self.assertEqual(frappe.db.count("Subdomain", {"virtual_machine": mine}), 0)
+			self.assertEqual(frappe.db.get_value("Subdomain", {"subdomain": "taken"}, "virtual_machine"), other)
 
 	def test_address_change_rederives_routes(self) -> None:
 		# A migration re-addresses the guest; the VM's routing rows must re-derive their

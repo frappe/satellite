@@ -9,6 +9,7 @@
  "field_order": [
   "subdomain",
   "active",
+  "provisioner_intent",
   "virtual_machine",
   "address"
  ],
@@ -31,6 +32,13 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Active"
+  },
+  {
+   "default": "0",
+   "description": "Set when the provisioner (an Atlas Site/Pilot) recorded this route as deploy intent, so Satellite reconciles it off the VM's routing_subdomains. Clear for a guest self-serve route (bench-domain-provider), which the intent reconcile never touches.",
+   "fieldname": "provisioner_intent",
+   "fieldtype": "Check",
+   "label": "Provisioner Intent"
   },
   {
    "description": "The site VM this subdomain points at. The proxy dials its guest IPv6 :80 (plaintext) over the v6 internet.",
