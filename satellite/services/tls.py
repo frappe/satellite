@@ -70,12 +70,20 @@ def renew_expiring() -> list[str]:
 	return renewed
 
 
+def _naive(value):
+	"""certbot's openssl validity dates carry a GMT tzinfo (`… 2026 GMT`), which
+	`get_datetime` turns into a tz-AWARE datetime that MariaDB's naive DATETIME column
+	rejects. The value is already UTC, so drop the offset before persisting."""
+	dt = get_datetime(value)
+	return dt.replace(tzinfo=None) if dt and dt.tzinfo else dt
+
+
 def _record_certificate(domain: str, issued) -> str:
 	values = {
 		"fullchain_path": issued.fullchain_path,
 		"privkey_path": issued.privkey_path,
-		"not_before": get_datetime(issued.not_before),
-		"not_after": get_datetime(issued.not_after),
+		"not_before": _naive(issued.not_before),
+		"not_after": _naive(issued.not_after),
 		"status": "Active",
 		"last_error": None,
 	}
