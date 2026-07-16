@@ -77,6 +77,24 @@ class TestRegistration(IntegrationTestCase):
 				registration.register_vm(ATLAS, "vm-uuid-1")
 			self.assertFalse(frappe.db.exists("Subdomain", sub.name))
 
+	def test_address_change_rederives_routes(self) -> None:
+		# A migration re-addresses the guest; the VM's routing rows must re-derive their
+		# denormalized address to follow the mirror (replacing Atlas's _repoint_routes).
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			sub = frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": "route-z", "virtual_machine": name, "active": 1}
+			).insert(ignore_permissions=True)
+			self.assertEqual(sub.address, PAYLOAD["guest_ipv6"])
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "guest_ipv6": "2001:db8::99"},
+			):
+				registration.register_vm(ATLAS, "vm-uuid-1")
+			self.assertEqual(frappe.db.get_value("Subdomain", sub.name, "address"), "2001:db8::99")
+
 	def test_deregister_tears_down_routes_before_deleting_mirror(self) -> None:
 		with patch("satellite.services.routing.enqueue_reconcile"):
 			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):

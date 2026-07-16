@@ -45,8 +45,14 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 	name = frappe.db.exists("Virtual Machine", {"atlas": atlas, "remote_id": payload["name"]})
 	if name:
 		doc = frappe.get_doc("Virtual Machine", name)
+		address_changed = bool(values["guest_ipv6"]) and doc.guest_ipv6 != values["guest_ipv6"]
 		doc.update(values)
 		doc.save(ignore_permissions=True)
+		# A migration re-addressed the guest (new /128). The routing rows carry a
+		# denormalized address (desired.routing_address), so re-save them to follow the
+		# mirror, then reconcile — replacing Atlas's deleted migration._repoint_routes.
+		if address_changed:
+			_rederive_routes(doc.name)
 	else:
 		doc = frappe.get_doc(
 			{"doctype": "Virtual Machine", "atlas": atlas, "remote_id": payload["name"], **values}
@@ -60,6 +66,22 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 
 		teardown_vm_routes(doc.name)
 	return doc.name
+
+
+def _rederive_routes(virtual_machine: str) -> None:
+	"""Re-save every routing row a VM owns so its denormalized address re-derives from the
+	(now-updated) mirror, then reconcile the fleet. Idempotent — a VM with no routes is a
+	no-op. The Satellite twin of Atlas's migration._repoint_routes (which is deleted once
+	routing lives here)."""
+	changed = False
+	for doctype in ("Subdomain", "Custom Domain", "Port Mapping"):
+		for name in frappe.get_all(doctype, filters={"virtual_machine": virtual_machine}, pluck="name"):
+			frappe.get_doc(doctype, name).save(ignore_permissions=True)
+			changed = True
+	if changed:
+		from satellite.services.routing import enqueue_reconcile
+
+		enqueue_reconcile()
 
 
 def deregister_vm(atlas: str, remote_id: str) -> None:
