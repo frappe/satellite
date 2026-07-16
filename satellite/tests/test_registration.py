@@ -30,8 +30,9 @@ def _ensure_atlas() -> None:
 class TestRegistration(IntegrationTestCase):
 	def setUp(self) -> None:
 		_ensure_atlas()
-		for name in frappe.get_all("Virtual Machine", pluck="name"):
-			frappe.delete_doc("Virtual Machine", name, force=1, ignore_permissions=True)
+		for doctype in ("Subdomain", "Custom Domain", "Port Mapping", "Virtual Machine"):
+			for name in frappe.get_all(doctype, pluck="name"):
+				frappe.delete_doc(doctype, name, force=1, ignore_permissions=True)
 
 	def test_register_upserts_mirror(self) -> None:
 		with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):
@@ -57,3 +58,32 @@ class TestRegistration(IntegrationTestCase):
 			name = registration.register_vm(ATLAS, "vm-uuid-1")
 		registration.deregister_vm(ATLAS, "vm-uuid-1")
 		self.assertFalse(frappe.db.exists("Virtual Machine", name))
+
+	def test_terminated_status_tears_down_routes(self) -> None:
+		# A mirror flipping to Terminated must delete the VM's routing rows so the proxy
+		# stops targeting a dead /128 — driven off the status, so the sweep heals it too.
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			sub = frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": "route-x", "virtual_machine": name, "active": 1}
+			).insert(ignore_permissions=True)
+			self.assertTrue(frappe.db.exists("Subdomain", sub.name))
+			with patch.object(
+				registration.AtlasClient,
+				"get_virtual_machine",
+				return_value={**PAYLOAD, "status": "Terminated"},
+			):
+				registration.register_vm(ATLAS, "vm-uuid-1")
+			self.assertFalse(frappe.db.exists("Subdomain", sub.name))
+
+	def test_deregister_tears_down_routes_before_deleting_mirror(self) -> None:
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=PAYLOAD):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			sub = frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": "route-y", "virtual_machine": name, "active": 1}
+			).insert(ignore_permissions=True)
+			registration.deregister_vm(ATLAS, "vm-uuid-1")
+			self.assertFalse(frappe.db.exists("Subdomain", sub.name))
+			self.assertFalse(frappe.db.exists("Virtual Machine", name))

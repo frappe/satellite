@@ -51,12 +51,25 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 		doc = frappe.get_doc(
 			{"doctype": "Virtual Machine", "atlas": atlas, "remote_id": payload["name"], **values}
 		).insert(ignore_permissions=True)
+	# A Terminated guest can no longer serve — tear down its routes so the proxy stops
+	# targeting a dead /128. Driven off the mirrored status, so both the lifecycle webhook
+	# and the reconcile sweep heal it (idempotent: a VM with no routes is a no-op). This is
+	# the guest-plane analogue of Atlas's synchronous terminate-deletes-subdomains.
+	if values["vm_status"] == "Terminated":
+		from satellite.services.routing import teardown_vm_routes
+
+		teardown_vm_routes(doc.name)
 	return doc.name
 
 
 def deregister_vm(atlas: str, remote_id: str) -> None:
 	name = frappe.db.exists("Virtual Machine", {"atlas": atlas, "remote_id": remote_id})
 	if name:
+		# Delete the routes BEFORE the mirror so nothing dangles (the Subdomain/Custom
+		# Domain/Port Mapping rows Link the mirror; a bare force-delete would orphan them).
+		from satellite.services.routing import teardown_vm_routes
+
+		teardown_vm_routes(name)
 		frappe.delete_doc("Virtual Machine", name, force=1, ignore_permissions=True)
 
 
