@@ -8,6 +8,8 @@ IPv4, guest IPv6) so no handler ever calls Atlas itself.
 
 from __future__ import annotations
 
+import json
+
 import frappe
 
 from satellite.atlas_client import AtlasClient
@@ -65,7 +67,27 @@ def _upsert_vm(atlas: str, payload: dict) -> str:
 		from satellite.services.routing import teardown_vm_routes
 
 		teardown_vm_routes(doc.name)
+	else:
+		_ensure_intent_subdomains(doc.name, payload.get("routing_subdomains"))
 	return doc.name
+
+
+def _ensure_intent_subdomains(virtual_machine: str, labels) -> None:
+	"""Create any provisioner-intent routing Subdomain that doesn't exist yet — the seam
+	that lets Atlas's Site/Pilot record a subdomain ON THE VM instead of creating the
+	Subdomain themselves (the routing dedup). `labels` is the VM read-API's
+	`routing_subdomains` (a list, or a JSON string). Create-only: a guest self-serve route
+	is never touched, and teardown_vm_routes on Terminated removes a VM's routes. Idempotent
+	— a label already taken (a re-run, or another VM) is skipped, never a hard error. The
+	Subdomain's own after_insert reconciles the fleet."""
+	if not labels:
+		return
+	desired = labels if isinstance(labels, list) else json.loads(labels)
+	for label in desired:
+		if label and not frappe.db.exists("Subdomain", {"subdomain": label}):
+			frappe.get_doc(
+				{"doctype": "Subdomain", "subdomain": label, "virtual_machine": virtual_machine, "active": 1}
+			).insert(ignore_permissions=True)
 
 
 def _rederive_routes(virtual_machine: str) -> None:

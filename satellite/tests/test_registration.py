@@ -77,6 +77,22 @@ class TestRegistration(IntegrationTestCase):
 				registration.register_vm(ATLAS, "vm-uuid-1")
 			self.assertFalse(frappe.db.exists("Subdomain", sub.name))
 
+	def test_intent_subdomains_created_from_read_api(self) -> None:
+		# Atlas records the Site/Pilot subdomain(s) on the VM; Satellite creates the
+		# Subdomain from the mirror — create-only + idempotent.
+		with patch("satellite.services.routing.enqueue_reconcile"):
+			payload = {**PAYLOAD, "routing_subdomains": ["mysite", "mysite-pilot"]}
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=payload):
+				name = registration.register_vm(ATLAS, "vm-uuid-1")
+			labels = set(frappe.get_all("Subdomain", filters={"virtual_machine": name}, pluck="subdomain"))
+			self.assertEqual(labels, {"mysite", "mysite-pilot"})
+			self.assertEqual(
+				frappe.db.get_value("Subdomain", {"subdomain": "mysite"}, "address"), PAYLOAD["guest_ipv6"]
+			)
+			with patch.object(registration.AtlasClient, "get_virtual_machine", return_value=payload):
+				registration.register_vm(ATLAS, "vm-uuid-1")  # a second event must not duplicate
+			self.assertEqual(frappe.db.count("Subdomain", {"virtual_machine": name}), 2)
+
 	def test_address_change_rederives_routes(self) -> None:
 		# A migration re-addresses the guest; the VM's routing rows must re-derive their
 		# denormalized address to follow the mirror (replacing Atlas's _repoint_routes).
